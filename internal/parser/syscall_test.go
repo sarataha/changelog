@@ -71,7 +71,7 @@ func TestSyscallInterpreter_Interpret(t *testing.T) {
 			expected: &audit.SystemAction{
 				Action:    "unlink",
 				Process:   "rm",
-				User:      "0",
+				User:      "root",
 				Timestamp: "2022-01-01 02:00:02",
 			},
 			wantErr: false,

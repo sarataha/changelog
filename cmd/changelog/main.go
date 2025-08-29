@@ -17,7 +17,7 @@ func main() {
 	auditParser := parser.NewAuditdParser()
 	syscallInterpreter := parser.NewSyscallInterpreter()
 
-	fmt.Println("=== Phase 0.2: Syscall Interpretation ===")
+	fmt.Println("=== Phase 0.3: Syscall + User Resolution ===")
 	
 	for i, line := range sampleLines {
 		fmt.Printf("\n--- Sample %d ---\n", i+1)

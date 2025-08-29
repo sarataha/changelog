@@ -9,7 +9,8 @@ import (
 
 // SyscallInterpreter maps syscall numbers to human-readable actions
 type SyscallInterpreter struct {
-	syscallMap map[int]string
+	syscallMap   map[int]string
+	userResolver *UserResolver
 }
 
 // NewSyscallInterpreter creates a new syscall interpreter with common syscalls
@@ -24,6 +25,7 @@ func NewSyscallInterpreter() *SyscallInterpreter {
 			262: "newfstatat",
 			263: "unlinkat",
 		},
+		userResolver: NewUserResolver(),
 	}
 }
 
@@ -46,7 +48,7 @@ func (s *SyscallInterpreter) Interpret(event *audit.AuditEvent) (*audit.SystemAc
 	action := &audit.SystemAction{
 		Action:    s.GetSyscallName(syscallNum),
 		Process:   event.Fields["comm"],
-		User:      event.Fields["uid"],
+		User:      s.userResolver.GetUsername(event.Fields["uid"]),
 		Timestamp: event.Timestamp.Format("2006-01-02 15:04:05"),
 	}
 
