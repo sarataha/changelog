@@ -1,8 +1,15 @@
 # changelog
 
-Converts auditd logs to human-readable format
+System changes detector - converts cryptic Linux logs to human-readable incident timelines
+
+**Current:** Parses auditd logs, decodes hex commands  
+**Goal:** Multi-source correlation (auditd + journalctl + dmesg) for incident response
 
 ```bash
-go run cmd/changelog/main.go
-# Output: 2022-01-01 02:00:00 sara opened file using vim
+go run cmd/changelog/main.go [audit-log-path]
+# Output: 2025-08-29 14:15:11 sara executed: tail -20 /var/log/audit/audit.log
+
+go test ./...  # Run tests
 ```
+
+Architecture: LogSource interface -> SystemEvent -> eventual correlation engine

@@ -44,3 +44,34 @@ func (f *FileLogReader) ReadEvent() (*AuditEvent, error) {
 func (f *FileLogReader) Close() error {
 	return f.file.Close()
 }
+
+// ReaderLogReader implements LogReader for any io.Reader
+type ReaderLogReader struct {
+	scanner *bufio.Scanner
+}
+
+// NewReaderLogReader creates a new reader log reader
+func NewReaderLogReader(reader io.Reader) (LogReader, error) {
+	return &ReaderLogReader{
+		scanner: bufio.NewScanner(reader),
+	}, nil
+}
+
+// ReadEvent reads the next raw line from the reader
+func (r *ReaderLogReader) ReadEvent() (*AuditEvent, error) {
+	if r.scanner.Scan() {
+		line := r.scanner.Text()
+		return &AuditEvent{Raw: line}, nil
+	}
+
+	if err := r.scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scanner error: %w", err)
+	}
+
+	return nil, io.EOF
+}
+
+// Close is a no-op for ReaderLogReader
+func (r *ReaderLogReader) Close() error {
+	return nil
+}

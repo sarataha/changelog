@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/sarataha/changelog/internal/audit"
 )
@@ -37,11 +36,10 @@ func (f *SimpleFormatter) Format(action *audit.SystemAction) string {
 	case "unlink", "unlinkat":
 		return fmt.Sprintf("%s %s deleted %s using %s",
 			action.Timestamp, action.User, action.Target, action.Process)
+	case "executed":
+		return fmt.Sprintf("%s %s executed: %s",
+			action.Timestamp, action.User, action.Target)
 	case "execve":
-		if strings.HasPrefix(action.Process, "systemctl") {
-			return fmt.Sprintf("%s %s executed: systemctl %s",
-				action.Timestamp, action.User, action.Target)
-		}
 		return fmt.Sprintf("%s %s executed: %s %s",
 			action.Timestamp, action.User, action.Process, action.Target)
 	default:
