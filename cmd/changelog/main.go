@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -12,29 +13,31 @@ import (
 )
 
 func main() {
-	auditLogPath := "/var/log/audit/audit.log"
-	if len(os.Args) > 1 {
-		auditLogPath = os.Args[1]
-	}
+	var (
+		auditLogPath  = flag.String("audit-log", "/var/log/audit/audit.log", "Path to audit log file")
+		incidentTime  = flag.String("incident-time", "", "Incident time (RFC3339 or HH:MM:SS)")
+		window        = flag.String("window", "1h", "Time window around incident (e.g., 10m, 2h)")
+		sources       = flag.String("sources", "auditd,journalctl,dmesg", "Comma-separated list of sources")
+	)
+	flag.Parse()
 
 	fmt.Printf("=== Multi-Source Event Collection ===\n")
 
-	// Create all log sources
-	sources, err := createLogSources(auditLogPath)
+	// Parse time range
+	timeRange, err := parseTimeRange(*incidentTime, *window)
+	if err != nil {
+		log.Fatalf("Failed to parse time range: %v", err)
+	}
+
+	// Create log sources based on --sources flag
+	logSources, err := createLogSources(*auditLogPath, *sources)
 	if err != nil {
 		log.Fatalf("Failed to create log sources: %v", err)
 	}
-	defer closeLogSources(sources)
-
-	// Set time range (last 1 hour for demo)
-	now := time.Now()
-	timeRange := source.TimeRange{
-		Start: now.Add(-1 * time.Hour),
-		End:   now,
-	}
+	defer closeLogSources(logSources)
 
 	// Collect events from all sources
-	allEvents, err := collectEventsFromSources(sources, timeRange)
+	allEvents, err := collectEventsFromSources(logSources, timeRange)
 	if err != nil {
 		log.Fatalf("Failed to collect events: %v", err)
 	}
@@ -54,22 +57,74 @@ func main() {
 	}
 }
 
-func createLogSources(auditLogPath string) ([]source.LogSource, error) {
-	var sources []source.LogSource
+func parseTimeRange(incidentTimeStr, windowStr string) (source.TimeRange, error) {
+	window, err := parseWindow(windowStr)
+	if err != nil {
+		return source.TimeRange{}, err
+	}
 
-	// Try to create auditd source
-	if auditFile, err := os.Open(auditLogPath); err == nil {
-		if auditSource, err := source.NewAuditdLogSource(auditFile); err == nil {
-			sources = append(sources, auditSource)
+	var incidentTime time.Time
+	if incidentTimeStr == "" {
+		incidentTime = time.Now()
+	} else {
+		incidentTime, err = parseIncidentTime(incidentTimeStr)
+		if err != nil {
+			return source.TimeRange{}, err
 		}
 	}
 
-	// For now, use empty readers for other sources (will add real commands later)
-	journalSource, _ := source.NewJournalctlLogSource(strings.NewReader(""))
-	dmesgSource, _ := source.NewDmesgLogSource(strings.NewReader(""))
+	halfWindow := window / 2
+	return source.TimeRange{
+		Start: incidentTime.Add(-halfWindow),
+		End:   incidentTime.Add(halfWindow),
+	}, nil
+}
 
-	sources = append(sources, journalSource, dmesgSource)
-	return sources, nil
+func parseIncidentTime(timeStr string) (time.Time, error) {
+	// Try RFC3339 format first
+	if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+		return t, nil
+	}
+
+	// Try time-only format (HH:MM:SS)
+	if t, err := time.Parse("15:04:05", timeStr); err == nil {
+		now := time.Now()
+		return time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), 0, now.Location()), nil
+	}
+
+	return time.Time{}, fmt.Errorf("invalid time format: %s (use RFC3339 or HH:MM:SS)", timeStr)
+}
+
+func parseWindow(windowStr string) (time.Duration, error) {
+	return time.ParseDuration(windowStr)
+}
+
+func createLogSources(auditLogPath, sourcesStr string) ([]source.LogSource, error) {
+	var logSources []source.LogSource
+	requestedSources := strings.Split(sourcesStr, ",")
+
+	for _, srcName := range requestedSources {
+		srcName = strings.TrimSpace(srcName)
+		
+		switch srcName {
+		case "auditd":
+			if auditFile, err := os.Open(auditLogPath); err == nil {
+				if auditSource, err := source.NewAuditdLogSource(auditFile); err == nil {
+					logSources = append(logSources, auditSource)
+				}
+			}
+		case "journalctl":
+			// For now, use empty reader (will add real journalctl command later)
+			journalSource, _ := source.NewJournalctlLogSource(strings.NewReader(""))
+			logSources = append(logSources, journalSource)
+		case "dmesg":
+			// For now, use empty reader (will add real dmesg command later)
+			dmesgSource, _ := source.NewDmesgLogSource(strings.NewReader(""))
+			logSources = append(logSources, dmesgSource)
+		}
+	}
+
+	return logSources, nil
 }
 
 func closeLogSources(sources []source.LogSource) {
