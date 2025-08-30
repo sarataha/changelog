@@ -1,9 +1,9 @@
 # changelog
 
-System changes detector - converts cryptic Linux logs to human-readable incident timelines
+converts cryptic Linux logs to human-readable incident timelines
 
-**Current:** Parses auditd logs, decodes hex commands  
-**Goal:** Multi-source correlation (auditd + journalctl + dmesg) for incident response
+**Current:** Multi-source readers (auditd + journalctl + dmesg + app logs)  
+**Goal:** Time based clustering for incident timelines
 
 ```bash
 go run cmd/changelog/main.go [audit-log-path]
