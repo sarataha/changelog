@@ -2,20 +2,20 @@
 
 converts cryptic Linux logs to human-readable incident timelines
 
-**Current:** Multi-source readers (auditd + journalctl + dmesg + app logs)  
-**Goal:** Time based clustering for incident timelines
+**Architecture:** Raw log collection -> AI interpretation -> correlation timeline
 
 ```bash
 # Basic usage
-go run cmd/changelog/main.go
+sudo ./changelog
 
 # Incident analysis  
-go run cmd/changelog/main.go --incident-time "14:32:00" --window 10m
+sudo ./changelog --incident-time "14:32:00" --window 10m
 
 # Filter sources
-go run cmd/changelog/main.go --sources auditd,journalctl --window 1h
+sudo ./changelog --sources auditd,journalctl --window 1h
 
-go test ./...  # Run tests
+# Build
+go build -o changelog cmd/changelog/main.go
 ```
 
-Architecture: LogSource interface -> SystemEvent -> eventual correlation engine
+**Next phase:** AI-powered log interpretation and correlation engine
