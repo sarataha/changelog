@@ -1,0 +1,114 @@
+# Lima VM configuration for changelog testing environment
+# Usage: limactl start lima-changelog.yaml
+
+vmType: "qemu"
+
+images:
+- location: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+  arch: "x86_64"
+
+cpus: 4
+memory: "8GiB"
+disk: "20GiB"
+
+ssh:
+  localPort: 60022
+  loadDotSSHPubKeys: true
+
+# Use default networking
+
+video:
+  display: "none"
+
+mounts:
+- location: "/Users/sara/gh/changelog"
+  mountPoint: "/home/sara.linux/changelog"
+  writable: true
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux
+    
+    # Update system
+    apt-get update
+    apt-get upgrade -y
+    
+    # Install essential tools
+    apt-get install -y \
+      curl wget git vim htop \
+      build-essential \
+      auditd audispd-plugins \
+      systemd-cron \
+      ca-certificates
+    
+    # Install Go 1.23+
+    cd /tmp
+    wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+    tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+    echo 'export PATH=/usr/local/go/bin:$PATH' >> /etc/profile
+    
+    # Install Ollama
+    curl -fsSL https://ollama.ai/install.sh | sh
+    
+    # Configure auditd for better logging
+    echo "-w /etc -p wa -k config_changes" >> /etc/audit/rules.d/changelog.rules
+    echo "-w /var/log -p wa -k log_changes" >> /etc/audit/rules.d/changelog.rules
+    systemctl restart auditd || true
+    
+    # Enable and start services
+    systemctl enable auditd
+    systemctl enable cron
+    systemctl start cron
+
+- mode: user
+  script: |
+    #!/bin/bash
+    set -eux
+    
+    # Add Go to PATH for user
+    echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
+    echo 'export GOPATH=$HOME/go' >> ~/.bashrc
+    echo 'export PATH=$GOPATH/bin:$PATH' >> ~/.bashrc
+    
+    # Create workspace
+    mkdir -p ~/go/{bin,src,pkg}
+    
+    # Build changelog tool
+    cd ~/changelog
+    /usr/local/go/bin/go build -o changelog cmd/changelog/main.go
+    sudo cp changelog /usr/local/bin/
+    sudo chmod +x /usr/local/bin/changelog
+    
+    # Start Ollama service in background
+    nohup ollama serve > ~/ollama.log 2>&1 &
+    sleep 5
+    
+    # Download a lightweight model for testing
+    ollama pull llama3.2:1b
+    
+    echo "=== Changelog VM Ready ==="
+    echo "Run: sudo changelog --window 5m"
+    echo "Ollama models: ollama list"
+
+portForwards:
+- guestPort: 11434
+  hostPort: 11434
+  proto: tcp
+
+message: |
+  Changelog testing environment is ready!
+  
+  Quick start:
+  1. limactl shell lima-changelog
+  2. sudo changelog --window 5m
+  3. Check Ollama: ollama list
+  
+  Paths:
+  - Changelog code: ~/changelog
+  - Binary: /usr/local/bin/changelog
+  - Ollama API: http://localhost:11434
