@@ -58,8 +58,13 @@ func main() {
 	// Get all raw logs
 	rawLogs := collector.GetRawLogs()
 
-	// Display raw logs (will be replaced with AI interpretation)
-	fmt.Printf("=== Raw Logs (%d entries) ===\n", len(rawLogs))
+	if len(rawLogs) == 0 {
+		fmt.Printf("No events found in the specified time window.\n")
+		return
+	}
+
+	// Show raw logs for now (AI too slow on this VM)
+	fmt.Printf("=== System Changes Timeline (%d events) ===\n", len(rawLogs))
 	for _, entry := range rawLogs {
 		fmt.Printf("%s [%s] %s\n",
 			entry.Timestamp.Format("15:04:05"),
